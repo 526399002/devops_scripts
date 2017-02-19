@@ -42,12 +42,19 @@ download_install() {
 
 upload_install() {
     local CURRENT_PATH=$(pwd)
-    echo -e "\033[33m 请上传对应python版本的xz包，放置到 ~/.pyenv/cache 中 \033[0m"
-    echo -e "\033[33m 再执行命令安装: \033[0m"
-    echo -e "\033[31m pyenv install Python_VERSION \033[0m"
-    sleep 0.5
     cd ~/.pyenv/cache
     rz
+    if [ "$?" == "0" ];then
+        local UPLOAD_FILE=$(ls -t ~/.pyenv/cache | head -1)
+        local VERSION=${UPLOAD_FILE:7:5}
+        if [[ $UPLOAD_FILE =~ Python-([0-9]\.){3}tar\.xz ]];then
+            pyenv install $VERSION
+        else
+            rm -rf $UPLOAD_FILE
+            echo -e "\033[31m 上传的Python文件不对, 格式如下: \033[0m"
+            echo -e "\033[31m Python-3.5.2.tar.xz \033[0m"
+        fi
+    fi
     cd $CURRENT_PATH
 }    
 

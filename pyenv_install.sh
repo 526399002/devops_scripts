@@ -7,28 +7,18 @@ source ~/.bash_profile
 IS_INSTALL=False
 
 trap "echo -e '\033[31m 终止退出 \033[0m;exit 4'" SIGINT
-####################################
-echo -e "\033[34m 安装依赖包 \033[0m"
-yum -y install git gcc make patch zlib-devel gdbm-devel openssl-devel sqlite-devel bzip2-devel readline-devel lrzsz
-if [ "$?" != "0" ];then
-    echo -e "\033[31m 无法正常安装，请检查你的yum源 \033[0m"
-    exit 4
-fi
-
-sleep 0.5
-####################################
-echo -e "\033[34m 安装pyenv \033[0m"
-
-which pyenv &> /dev/null
-if [ "$?" == "0" ];then
-    echo -e "\033[32m 你已安装pyenv \033[0m"
-    IS_INSTALL=True
-else
-    curl -L https://raw.githubusercontent.com/yyuu/pyenv-installer/master/bin/pyenv-installer | bash
-    echo 'export PATH="~/.pyenv/bin:$PATH"' >> ~/.bash_profile
-    echo 'eval "$(pyenv init -)"' >> ~/.bash_profile
-    echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bash_profile
-fi
+##################函数定义###################
+pyenv_download() {
+    local TEMP_FILE="foo.log"
+    curl -L https://raw.githubusercontent.com/yyuu/pyenv-installer/master/bin/pyenv-installer | bash > ./foo.log
+    grep "couldn't connect" $TEMP_FILE && git clone https://github.com/yyuu/pyenv.git ~/.pyenv
+    rm -rf $TEMP_FILE
+    if [ -d ~/.pyenv ];then 
+        return 0
+    else
+        return 4
+    fi
+} 
 
 download_install() {
     local VERSION
@@ -75,9 +65,34 @@ install_python_version() {
         ;;
     esac
 }
+####################################
+echo -e "\033[34m 安装依赖包 \033[0m"
+yum -y install git gcc make patch zlib-devel gdbm-devel openssl-devel sqlite-devel bzip2-devel readline-devel lrzsz
+if [ "$?" != "0" ];then
+    echo -e "\033[31m 无法正常安装，请检查你的yum源 \033[0m"
+    exit 4
+fi
 
+sleep 0.5
+####################################
+echo -e "\033[34m 安装pyenv \033[0m"
+
+which pyenv &> /dev/null
+if [ "$?" == "0" ];then
+    echo -e "\033[32m 你已安装pyenv \033[0m"
+    IS_INSTALL=True
+else
+    pyenv_download
+    if [ "$?" == "0" ];then
+        echo 'export PATH="~/.pyenv/bin:$PATH"' >> ~/.bash_profile
+        echo 'eval "$(pyenv init -)"' >> ~/.bash_profile
+        echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bash_profile
+    fi
+fi
 [ -d ~/.pyenv/cache ] || mkdir ~/.pyenv/cache
 sleep 0.5
+
+
 #####################################
 echo -ne "\033[31m 是否安装python: [N|Y] \033[0m"
 read INSTALL_PYTHON

@@ -49,6 +49,8 @@ upload_install() {
 }    
 
 install_python_version() {
+    echo -e "\033[31m 若使用下载安装python，则直接从官网下载，可能会失败 \033[0m"
+    echo -e "\033[31m 若使用上传安装python，需先从官网下载python的xz源码包 \033[0m"
     echo -ne "\033[31m 不安装 | 下载安装 | 上传python安装包 [Down|Upload|No] \033[0m"
     read CHOICE
     

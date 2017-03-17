@@ -35,9 +35,10 @@ upload_install() {
     cd ~/.pyenv/cache
     rz
     if [ "$?" == "0" ];then
-        local UPLOAD_FILE=$(ls -t ~/.pyenv/cache | head -1)
-        local VERSION=${UPLOAD_FILE:7:5}
-        if [[ $UPLOAD_FILE =~ Python-([0-9]\.){3}tar\.xz ]];then
+        local UPLOAD_FILE=$(ls -ct ~/.pyenv/cache | head -1)
+        local VERSION=$(echo $UPLOAD_FILE | grep -Po "(?<=(-)).*(?=.ta)")
+        echo $VERSION
+        if [[ $UPLOAD_FILE =~ Python-([0-9]+\.){3}tar\.xz ]];then
             pyenv install $VERSION
         else
             rm -rf $UPLOAD_FILE
@@ -89,6 +90,7 @@ else
         echo 'export PATH="~/.pyenv/bin:$PATH"' >> ~/.bash_profile
         echo 'eval "$(pyenv init -)"' >> ~/.bash_profile
         echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bash_profile
+        source ~/.bash_profile
     fi
 fi
 [ -d ~/.pyenv/cache ] || mkdir ~/.pyenv/cache

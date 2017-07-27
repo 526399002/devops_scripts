@@ -2,22 +2,85 @@
 # author: pixiu
 # create: 2017-10-36 10:36
 
-# VARIALBES_SETTINGS
-source ~/.bash_profile
-IS_INSTALL=False
+# 判断系统发行版
+RELEASE=$(cat /etc/*-release | egrep -o "(Debian|Ubuntu|CentOS)" | uniq)
 
-trap "echo -e '\033[31m 终止退出 \033[0m;exit 4'" SIGINT
+# 是否安装pyenv
+IS_INSTALL=False
+PATH_FILE=""
+
+# 根据系统发行版指定环境变量文件
+if [ "$RELEASE" == "Debian" -o "$RELEASE" == "Ubuntu" ];then
+    PATH_FILE=~/.bashrc
+elif [ "$RELEASE" == "CentOS" ];then
+    PATH_FILE=~/.bash_profile
+fi 
+
+# 读取环境变量
+source $PATH_FILE
+
+trap 'echo -e "\033[31m 终止退出 \033[0m";exit 40' SIGINT
 ##################函数定义###################
-pyenv_download() {
-    local TEMP_FILE="foo.log"
-    curl -L https://raw.githubusercontent.com/yyuu/pyenv-installer/master/bin/pyenv-installer | bash > ./foo.log
-    grep "couldn't connect" $TEMP_FILE && git clone https://github.com/yyuu/pyenv.git ~/.pyenv
-    rm -rf $TEMP_FILE
-    if [ -d ~/.pyenv ];then 
-        return 0
-    else
-        return 4
+install_depend () {
+    echo -e "\033[34m 安装依赖包 \033[0m"
+
+    if [ $(id -u) != 0 ];then
+        which sudo || echo "\033[31m当前非root用户，且没有sudo命令\033[0m"
+        exit 43
     fi
+    
+    case $RELEASE in
+    Debian|Ubuntu)
+        sudo apt-get install -y gcc make lrzsz readline.dev zlib1g.dev curl libssl-dev libsqlite3-dev libreadline-dev libbz2-dev
+        if [ "$?" != "0" ];then
+            echo -e "\033[31m 无法正常安装，请检查你的apt源 \033[0m"
+            exit 4
+        fi
+        ;;
+    CentOS) 
+        sudo yum -y install git gcc make patch zlib-devel gdbm-devel openssl-devel sqlite-devel bzip2-devel readline-devel lrzsz
+        if [ "$?" != "0" ];then
+            echo -e "\033[31m 无法正常安装，请检查你的yum源 \033[0m"
+            exit 4
+        fi
+        ;;
+    *)
+        echo "仅支持Ubuntu系和CenOS"
+        exit 5
+        ;;
+    esac
+
+    sleep 0.5
+}
+
+pyenv_download() {
+    local TEMP_FILE="/tmp/foo.log"
+
+    echo -e "\033[34m 安装pyenv \033[0m"
+
+    if [ -d ~/.pyenv ];then
+        echo -e "\033[32m你已安装pyenv \033[0m" 
+        which pyenv &> /dev/null && IS_INSTALL=True
+    else
+        curl -L https://raw.githubusercontent.com/yyuu/pyenv-installer/master/bin/pyenv-installer | bash > $TEMP_FILE
+        grep "couldn't connect" $TEMP_FILE && git clone https://github.com/yyuu/pyenv.git ~/.pyenv
+
+        if [ ! -d ~/.pyenv ];then
+            echo -e "\033[31m 安装pyenv失败,请检查网络是否正常 \033[0m"
+            exit 31
+        fi
+
+        grep pyenv $PATH_FILE || (
+        echo 'export PATH="~/.pyenv/bin:$PATH"' >> $PATH_FILE
+        echo 'eval "$(pyenv init -)"' >> $PATH_FILE
+        echo 'eval "$(pyenv virtualenv-init -)"' >> $PATH_FILE
+        )
+        source $PATH_FILE
+        rm -rf $TEMP_FILE
+    fi
+
+    [ -d ~/.pyenv/cache ] || mkdir ~/.pyenv/cache
+    sleep 0.5
 } 
 
 download_install() {
@@ -37,7 +100,6 @@ upload_install() {
     if [ "$?" == "0" ];then
         local UPLOAD_FILE=$(ls -ct ~/.pyenv/cache | head -1)
         local VERSION=$(echo $UPLOAD_FILE | grep -Po "(?<=(-)).*(?=.ta)")
-        echo $VERSION
         if [[ $UPLOAD_FILE =~ Python-([0-9]+\.){3}tar\.xz ]];then
             pyenv install $VERSION
         else
@@ -45,6 +107,9 @@ upload_install() {
             echo -e "\033[31m 上传的Python文件不对, 格式如下: \033[0m"
             echo -e "\033[31m Python-3.5.2.tar.xz \033[0m"
         fi
+    else
+        echo -e "\033[31m 上传文件异常 \033[0m"
+        exit 39
     fi
     cd $CURRENT_PATH
 }    
@@ -68,36 +133,15 @@ install_python_version() {
         ;;
     esac
 }
-####################################
-echo -e "\033[34m 安装依赖包 \033[0m"
-yum -y install git gcc make patch zlib-devel gdbm-devel openssl-devel sqlite-devel bzip2-devel readline-devel lrzsz
-if [ "$?" != "0" ];then
-    echo -e "\033[31m 无法正常安装，请检查你的yum源 \033[0m"
-    exit 4
-fi
+############### 安装依赖包 #####################
 
-sleep 0.5
-####################################
-echo -e "\033[34m 安装pyenv \033[0m"
+install_depend
 
-which pyenv &> /dev/null
-if [ "$?" == "0" ];then
-    echo -e "\033[32m 你已安装pyenv \033[0m"
-    IS_INSTALL=True
-else
-    pyenv_download
-    if [ "$?" == "0" ];then
-        echo 'export PATH="~/.pyenv/bin:$PATH"' >> ~/.bash_profile
-        echo 'eval "$(pyenv init -)"' >> ~/.bash_profile
-        echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bash_profile
-        source ~/.bash_profile
-    fi
-fi
-[ -d ~/.pyenv/cache ] || mkdir ~/.pyenv/cache
-sleep 0.5
+############### 安装pyenv ####################
 
+pyenv_download
 
-#####################################
+################ 安装python #####################
 echo -ne "\033[31m 是否安装python: [N|Y] \033[0m"
 read INSTALL_PYTHON
 
@@ -114,5 +158,5 @@ esac
 #####################################
 if [ "$IS_INSTALL" == "False" ];then
     echo -e "\033[33m 请执行以下命令生效环境变量: \033[0m"
-    echo -e "\033[31m source ~/.bash_profile \033[0m"
+    echo -e "\033[31m source $PATH_FILE \033[0m"
 fi
